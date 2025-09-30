@@ -15,11 +15,6 @@ class ParserCBRF:
         self.target_url = url or "https://www.cbr.ru/hd_base/keyrate/"
         self.json_filename = json_filename
         self.data = {}
-        self.current_date = None
-        self.current_rate = None
-        self.in_table = False
-        self.in_row = False
-        self.cell_count = 0
 
     def start(self):
         """Основной публичный метод для запуска парсера"""
@@ -49,10 +44,10 @@ class ParserCBRF:
         with open(self.json_filename, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, ensure_ascii=False, indent=4)
 
-        print(f"Данные успешно сохранены в {self.json_filename}")
+        print(f"Все данные успешно сохранены в {self.json_filename}")
 
-    def add_data(self, date, rate):
-        """Добавление данных в словарь"""
+    def _add_data(self, date, rate):
+        """Приватный метод для добавления данных в словарь"""
         self.data[date] = rate
 
 
@@ -63,8 +58,6 @@ class CBRFHTMLParser(HTMLParser):
         self.in_table = False
         self.in_row = False
         self.cell_count = 0
-        self.current_date = None
-        self.current_rate = None
         self.cell_data = []
 
     def handle_starttag(self, tag, attrs):
@@ -92,7 +85,7 @@ class CBRFHTMLParser(HTMLParser):
                 try:
                     date = datetime.strptime(date_str, '%d.%m.%Y').date()
                     rate = float(rate_str.replace(',', '.'))
-                    self.parent.add_data(date, rate)
+                    self.parent._add_data(date, rate)  # Используем приватный метод
                 except ValueError:
                     pass
             self.cell_data = []
@@ -104,46 +97,26 @@ class CBRFHTMLParser(HTMLParser):
                 self.cell_data.append(data.strip())
 
 
-# Функция для проверки выполнения задания
-def check_parser_work():
-    """Проверка корректности работы парсера"""
-    print("=== ПРОВЕРКА ВЫПОЛНЕНИЯ ЗАДАНИЯ ===")
-
-    # Создаем парсер
-    parser = ParserCBRF(json_filename="key_rates.json")
-
-    # Запускаем сбор данных
-    print("1. Запуск парсера через parser.start()...")
-    result = parser.start()
-
-    # Проверяем, что данные получены
-    print(f"2. Получено записей: {len(result)}")
-
-    # Проверяем существование JSON-файла
-    json_exists = os.path.exists("key_rates.json")
-    print(f"3. JSON-файл создан: {json_exists}")
-
-    if json_exists:
-        # Проверяем содержимое JSON-файла
-        with open("key_rates.json", 'r', encoding='utf-8') as f:
-            json_data = json.load(f)
-
-        print(f"4. Данные в JSON-файле: {len(json_data)} записей")
-
-        # Выводим пример данных из JSON
-        print("5. Пример данных из JSON:")
-        items = list(json_data.items())[:5]  # Первые 5 записей
-        for date, rate in items:
-            print(f"   {date}: {rate}%")
-
-    # Итоговая проверка
-    success = len(result) > 0 and json_exists
-    print(f"\n=== РЕЗУЛЬТАТ ПРОВЕРКИ: {'ЗАДАНИЕ ВЫПОЛНЕНО' if success else 'ЗАДАНИЕ НЕ ВЫПОЛНЕНО'} ===")
-
-    return success
-
-
-# Пример использования
 if __name__ == "__main__":
-    # Запускаем проверку
-    check_parser_work()
+    # Создаем парсер
+    parser = ParserCBRF()
+
+    # Запускаем парсер и получаем все данные
+    all_data = parser.start()
+
+    # Выводим все данные в консоль
+    print("\nВСЕ ДАННЫЕ ПО КЛЮЧЕВОЙ СТАВКЕ ЦБ РФ:")
+    print("=" * 50)
+
+    # Сортируем по дате и выводим все записи
+    for date, rate in sorted(all_data.items()):
+        print(f"{date}: {rate}%")
+
+    # Выводим статистику
+    print("\n" + "=" * 50)
+    print(f"Всего записей: {len(all_data)}")
+
+    if all_data:
+        dates = sorted(all_data.keys())
+        print(f"Период данных: с {dates[0]} по {dates[-1]}")
+        print(f"Текущая ключевая ставка: {all_data[dates[-1]]}%")
